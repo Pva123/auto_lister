@@ -1,62 +1,67 @@
-# Auto Lister
+# Auto Lister - Listing Recorder
 
-Simple automation tool to manage second-hand item listings across Facebook Marketplace, Kijiji, and eBay.
+A simple tool to help you record the steps for posting items on Facebook Marketplace, Kijiji, and eBay.
+
+This tool doesn't post for you automatically. Instead, it logs you in, saves your browser session, and gives you a command to record your own posting steps using Playwright Codegen. This allows you to create robust automation scripts tailored to your exact workflow.
 
 ## Setup
 
-1. **Create virtual environment (recommended):**
+1.  **Create and activate a virtual environment (recommended):**
 
-   ```bash
-   python -m venv auto_lister_env
-   source auto_lister_env/bin/activate  # On macOS/Linux
-   # auto_lister_env\Scripts\activate   # On Windows
-   ```
+    ```bash
+    # On macOS/Linux
+    python3 -m venv venv
+    source venv/bin/activate
 
-2. **Install dependencies:**
+    # On Windows
+    python -m venv venv
+    venv\Scripts\activate
+    ```
 
-   ```bash
-   python setup.py
-   ```
+2.  **Install dependencies:**
 
-3. **Add your items:**
-   - Create folders in `items/` (e.g., `items/my_laptop/`)
-   - Add `info.json` with item details
-   - Add product images
-   - See `items/sample_item/` for example
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-## Usage
+3.  **Install Playwright browsers:**
+    This downloads the web browsers that Playwright uses for automation.
 
-```bash
-python lister.py
-```
+    ```bash
+    playwright install
+    ```
 
-The tool will:
+## How to Use
 
-- Check each platform for existing listings
-- Prompt you to post missing items
-- Auto-fill forms (you complete manually)
-- Save login sessions for next time
+1.  **Run the recording helper:**
 
-## Item Structure
+    ```bash
+    python lister.py
+    ```
 
-Each item folder needs an `info.json`:
+2.  **Select Platforms:** The script will ask you which platforms (Facebook, Kijiji, eBay) you want to log into.
 
-```json
-{
-  "title": "Vintage Leather Jacket - Size M",
-  "description": "Beautiful vintage leather jacket...",
-  "price": 85,
-  "platforms": ["facebook", "kijiji"],
-  "category": "Clothing",
-  "condition": "Used - Excellent"
-}
-```
+3.  **Log In:** A browser window will open with the login pages for the sites you selected. Log into each one.
+
+4.  **Confirm Login:** Once you've logged in to all platforms, go back to your terminal and press `Enter`.
+
+5.  **Get Codegen Command:** The script will save your login session (cookies) and display a `playwright codegen` command in the terminal.
+
+6.  **Start Recording:**
+
+    - Open a **new terminal** (leave the current one running).
+    - Make sure your virtual environment is activated in the new terminal.
+    - Copy and paste the `playwright codegen` command into the new terminal and run it.
+
+7.  **Record Your Actions:** A new browser window will open, with you already logged in. Perform all the steps to list one item (e.g., click "Create new listing", fill out the form, upload photos, etc.).
+
+8.  **Generate Code:** When you're finished, close the browser window that Codegen opened. The recorded steps will be saved as Python code inside `lister.py`.
+
+9.  **Use the Recorded Code:** You can now copy the generated code from `lister.py` and use it to build your final, fully automated listing script.
 
 ## Files
 
-- `setup.py` - One-time setup script
-- `lister.py` - Main automation script
-- `items/` - Your items database
-- `browser_data/` - Saved login sessions (auto-created)
-
-That's it! Simple and minimal.
+- `lister.py`: The main script that helps you log in and start a recording session. The code you generate with Codegen will also be saved here.
+- `requirements.txt`: Project dependencies.
+- `browser_data/`: Stores your saved login sessions. It is created automatically.
+- `items/`: You can use this folder to store your item information and images, which your final script can read from.
