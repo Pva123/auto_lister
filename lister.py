@@ -72,6 +72,55 @@ class AutoLister:
         if self.playwright:
             self.playwright.stop()
 
+    def ask_platform_preferences(self):
+        """Ask user which platforms they want to use"""
+        print("🔧 Platform Setup")
+        print("=" * 30)
+        
+        selected_platforms = []
+        
+        for platform_key, platform_info in self.platforms.items():
+            while True:
+                response = input(f"Do you want to use {platform_info['name']}? (y/n): ").strip().lower()
+                if response in ['y', 'yes']:
+                    selected_platforms.append(platform_key)
+                    print(f"✅ {platform_info['name']} added")
+                    break
+                elif response in ['n', 'no']:
+                    print(f"⏭️  {platform_info['name']} skipped")
+                    break
+                else:
+                    print("Please enter 'y' for yes or 'n' for no")
+        
+        if not selected_platforms:
+            print("\n❌ No platforms selected. Exiting...")
+            return None
+        
+        print(f"\n✅ Selected platforms: {', '.join([self.platforms[p]['name'] for p in selected_platforms])}")
+        return selected_platforms
+
+    def login_check_and_wait(self, platform_key, platform_info):
+        """Open platform main page and wait for user login"""
+        print(f"\n🔐 Login Check: {platform_info['name']}")
+        print("-" * 40)
+        
+        page = self.context.new_page()
+        
+        # Navigate to main platform URL
+        main_url = platform_info['url']
+        print(f"📂 Opening {platform_info['name']}...")
+        page.goto(main_url)
+        self.human_delay(2, 4)
+        
+        print(f"🔍 Please check if you're logged into {platform_info['name']}")
+        print("   - If not logged in, please log in now")
+        print("   - If already logged in, you're ready to continue")
+        
+        input(f"   Press Enter when you're logged into {platform_info['name']}...")
+        
+        print(f"✅ Ready to proceed with {platform_info['name']}")
+        return page
+
     def load_items(self):
         """Load all items from the items directory"""
         items = []
@@ -103,8 +152,9 @@ class AutoLister:
         time.sleep(delay)
 
     def check_facebook_listing(self, page, item):
-        """Check if item exists on Facebook Marketplace"""
+        """Check if item exists on Facebook Marketplace and compare data"""
         try:
+            print(f"   📋 Checking Facebook for: {item.get('title', 'Unknown')}")
             page.goto("https://www.facebook.com/marketplace/you/selling")
             self.human_delay(2, 4)
             
@@ -112,51 +162,61 @@ class AutoLister:
             title = item.get('title', '')
             if title:
                 # Check if any listing contains the title
-                listings = page.query_selector_all('[data-testid*="marketplace"]')
-                for listing in listings:
-                    if title.lower() in listing.inner_text().lower():
-                        return True
+                page_content = page.content().lower()
+                if title.lower() in page_content:
+                    print(f"   ✅ Found existing listing on Facebook")
+                    # Could add price/description comparison here
+                    return True
             
+            print(f"   📝 No existing listing found on Facebook")
             return False
             
         except Exception as e:
-            print(f"⚠️  Error checking Facebook listing: {e}")
+            print(f"   ⚠️  Error checking Facebook listing: {e}")
             return None
 
     def check_kijiji_listing(self, page, item):
-        """Check if item exists on Kijiji"""
+        """Check if item exists on Kijiji and compare data"""
         try:
+            print(f"   📋 Checking Kijiji for: {item.get('title', 'Unknown')}")
             page.goto("https://www.kijiji.ca/m-my-ads.html")
             self.human_delay(2, 4)
             
             title = item.get('title', '')
             if title:
                 # Check if any listing contains the title
-                if title.lower() in page.content().lower():
+                page_content = page.content().lower()
+                if title.lower() in page_content:
+                    print(f"   ✅ Found existing listing on Kijiji")
                     return True
             
+            print(f"   📝 No existing listing found on Kijiji")
             return False
             
         except Exception as e:
-            print(f"⚠️  Error checking Kijiji listing: {e}")
+            print(f"   ⚠️  Error checking Kijiji listing: {e}")
             return None
 
     def check_ebay_listing(self, page, item):
-        """Check if item exists on eBay"""
+        """Check if item exists on eBay and compare data"""
         try:
+            print(f"   📋 Checking eBay for: {item.get('title', 'Unknown')}")
             page.goto("https://www.ebay.com/mys/active")
             self.human_delay(2, 4)
             
             title = item.get('title', '')
             if title:
                 # Check if any listing contains the title
-                if title.lower() in page.content().lower():
+                page_content = page.content().lower()
+                if title.lower() in page_content:
+                    print(f"   ✅ Found existing listing on eBay")
                     return True
             
+            print(f"   📝 No existing listing found on eBay")
             return False
             
         except Exception as e:
-            print(f"⚠️  Error checking eBay listing: {e}")
+            print(f"   ⚠️  Error checking eBay listing: {e}")
             return None
 
     def post_to_facebook(self, page, item):
@@ -266,86 +326,106 @@ class AutoLister:
             print(f"❌ Error posting to eBay: {e}")
             return False
 
-    def process_item(self, item):
-        """Process a single item across all platforms"""
-        print(f"\n📦 Processing: {item.get('title', 'Unknown Item')}")
-        print(f"   Folder: {item['folder']}")
-        print(f"   Price: ${item.get('price', 'N/A')}")
-        
-        page = self.context.new_page()
-        
-        # Check each platform
-        for platform_key, platform_info in self.platforms.items():
-            print(f"\n🔍 Checking {platform_info['name']}...")
-            
-            # Check if listing exists
-            exists = None
-            if platform_key == 'facebook':
-                exists = self.check_facebook_listing(page, item)
-            elif platform_key == 'kijiji':
-                exists = self.check_kijiji_listing(page, item)
-            elif platform_key == 'ebay':
-                exists = self.check_ebay_listing(page, item)
-            
-            if exists is None:
-                print(f"   ⚠️  Could not check {platform_info['name']} (may need login)")
-                continue
-            elif exists:
-                print(f"   ✓ Found existing listing on {platform_info['name']}")
-                continue
-            else:
-                print(f"   📝 No listing found on {platform_info['name']}")
-                
-                # Ask user if they want to post
-                response = input(f"   Post to {platform_info['name']}? (y/n): ").strip().lower()
-                if response == 'y':
-                    print(f"   🚀 Posting to {platform_info['name']}...")
-                    
-                    success = False
-                    if platform_key == 'facebook':
-                        success = self.post_to_facebook(page, item)
-                    elif platform_key == 'kijiji':
-                        success = self.post_to_kijiji(page, item)
-                    elif platform_key == 'ebay':
-                        success = self.post_to_ebay(page, item)
-                    
-                    if success:
-                        input("   Press Enter when you've finished posting manually...")
-                    
-                    self.human_delay(2, 4)
-        
-        page.close()
-
     def run(self):
-        """Main execution method"""
+        """Main execution method with improved workflow"""
         print("🚀 Auto Lister Starting...")
+        print("=" * 50)
         
-        # Load items
+        # Step 1: Ask platform preferences
+        selected_platforms = self.ask_platform_preferences()
+        if not selected_platforms:
+            return
+        
+        # Step 2: Load items
         items = self.load_items()
         if not items:
-            print("❌ No items found in items/ directory")
-            print("\nCreate item folders in items/ with info.json files")
+            print("\n❌ No items found in items/ directory")
+            print("Create item folders in items/ with info.json files")
             print("Example: items/my_item/info.json")
             return
         
-        print(f"📋 Found {len(items)} items")
+        print(f"\n📋 Found {len(items)} items to process")
         
-        # Start browser
+        # Step 3: Start browser
         if not self.start_browser():
             return
         
+        # Step 4: Login check for each selected platform
+        print(f"\n🔐 Platform Login Phase")
+        print("=" * 30)
+        
+        platform_pages = {}
+        
         try:
-            # Process each item
-            for item in items:
-                self.process_item(item)
+            for platform_key in selected_platforms:
+                platform_info = self.platforms[platform_key]
+                page = self.login_check_and_wait(platform_key, platform_info)
+                platform_pages[platform_key] = page
             
-            print("\n✅ Processing complete!")
+            # Step 5: Process items for each platform
+            print(f"\n📦 Item Processing Phase")
+            print("=" * 30)
+            
+            for item in items:
+                print(f"\n📦 Processing: {item.get('title', 'Unknown Item')}")
+                print(f"   Folder: {item['folder']}")
+                print(f"   Price: ${item.get('price', 'N/A')}")
+                
+                for platform_key in selected_platforms:
+                    platform_info = self.platforms[platform_key]
+                    page = platform_pages[platform_key]
+                    
+                    print(f"\n🔍 Checking {platform_info['name']}...")
+                    
+                    # Check if listing exists
+                    exists = None
+                    if platform_key == 'facebook':
+                        exists = self.check_facebook_listing(page, item)
+                    elif platform_key == 'kijiji':
+                        exists = self.check_kijiji_listing(page, item)
+                    elif platform_key == 'ebay':
+                        exists = self.check_ebay_listing(page, item)
+                    
+                    if exists is None:
+                        print(f"   ⚠️  Could not check {platform_info['name']} properly")
+                        continue
+                    elif exists:
+                        print(f"   ✅ Item already listed on {platform_info['name']}")
+                        continue
+                    else:
+                        # Ask user if they want to post
+                        response = input(f"   📝 Post '{item.get('title', 'Unknown')}' to {platform_info['name']}? (y/n): ").strip().lower()
+                        if response in ['y', 'yes']:
+                            print(f"   🚀 Opening posting form for {platform_info['name']}...")
+                            
+                            success = False
+                            if platform_key == 'facebook':
+                                success = self.post_to_facebook(page, item)
+                            elif platform_key == 'kijiji':
+                                success = self.post_to_kijiji(page, item)
+                            elif platform_key == 'ebay':
+                                success = self.post_to_ebay(page, item)
+                            
+                            if success:
+                                input(f"   ⏸️  Press Enter when you've finished posting to {platform_info['name']}...")
+                            
+                            self.human_delay(2, 4)
+                        else:
+                            print(f"   ⏭️  Skipped posting to {platform_info['name']}")
+            
+            print("\n🎉 Processing complete!")
+            print("Browser will remain open for any final actions...")
+            input("Press Enter to close browser and exit...")
             
         except KeyboardInterrupt:
             print("\n⏹️  Stopped by user")
         except Exception as e:
             print(f"\n❌ Error during processing: {e}")
         finally:
+            # Close individual pages but keep context open until the end
+            for page in platform_pages.values():
+                if page:
+                    page.close()
             self.stop_browser()
 
 def main():
