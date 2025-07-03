@@ -41,19 +41,20 @@ class AutoLister:
         """Start browser with persistent context"""
         try:
             self.playwright = sync_playwright().start()
-            self.browser = self.playwright.chromium.launch(
-                headless=False,
-                args=['--no-sandbox', '--disable-dev-shm-usage']
-            )
             
             # Use persistent context to maintain login sessions
             context_dir = self.browser_data_dir / "context"
             context_dir.mkdir(exist_ok=True)
             
-            self.context = self.browser.new_context(
+            self.context = self.playwright.chromium.launch_persistent_context(
                 user_data_dir=str(context_dir),
+                headless=False,
+                args=['--no-sandbox', '--disable-dev-shm-usage'],
                 viewport={'width': 1280, 'height': 720}
             )
+            
+            # For persistent context, browser is None since we use context directly
+            self.browser = None
             
             print("✓ Browser started with persistent session")
             return True
@@ -67,8 +68,7 @@ class AutoLister:
         """Clean up browser resources"""
         if self.context:
             self.context.close()
-        if self.browser:
-            self.browser.close()
+        # No need to close browser separately when using persistent context
         if self.playwright:
             self.playwright.stop()
 
